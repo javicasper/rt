@@ -1,0 +1,4 @@
+command = "git add *"
+
+[on_success]
+output = "{output}"

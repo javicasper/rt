@@ -1,0 +1,12 @@
+command = ["npm install", "pnpm install", "yarn install"]
+
+skip = [
+  "^\\s*npm (warn|notice|WARN|verbose|info|timing)",
+  "^\\s*WARN\\s",
+]
+
+[on_success]
+output = "{output}"
+
+[on_failure]
+tail = 15

@@ -1,0 +1,18 @@
+command = ["npm test", "pnpm test", "yarn test"]
+
+strip_ansi = true
+
+skip = [
+  "^> ",
+  "^\\s*npm (warn|notice|WARN|verbose|info|timing|error|ERR)",
+  "^\\s*WARN\\s",
+  "^\\s*ERR!",
+  "^\\s*yarn run",
+  "^\\s*\\$\\s",
+]
+
+[on_success]
+output = "{output}"
+
+[on_failure]
+tail = 20

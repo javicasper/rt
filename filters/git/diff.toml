@@ -1,0 +1,8 @@
+command = "git diff"
+
+skip = [
+  "^index [0-9a-f]",
+  "^diff --git",
+  "^--- a/",
+  "^\\+\\+\\+ b/",
+]

@@ -1,0 +1,16 @@
+command = "cargo build"
+
+skip = [
+  "^\\s*Compiling ",
+  "^\\s*Downloading ",
+  "^\\s*Locking ",
+  "^\\s*Updating ",
+  "^\\s*Fetching ",
+  "^\\s*Fresh ",
+]
+
+[on_success]
+output = "{output}"
+
+[on_failure]
+tail = 30

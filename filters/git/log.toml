@@ -1,0 +1,2 @@
+command = "git log"
+run = "git log --oneline -20"

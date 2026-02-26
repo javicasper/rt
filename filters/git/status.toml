@@ -1,0 +1,22 @@
+command = "git status"
+run = "git status --porcelain -b"
+
+[[match_output]]
+contains = "not a git repository"
+output = "Not a git repository"
+
+[[match_output]]
+contains = "no es un repositorio git"
+output = "Not a git repository"
+
+[[replace]]
+pattern = '^## HEAD \(no branch\).*$'
+output = "HEAD (detached)"
+
+[[replace]]
+pattern = '^## (\S+?)(?:\.\.\.\S+)?\s+\[(.+)\]$'
+output = "{1} [{2}]"
+
+[[replace]]
+pattern = '^## (\S+?)(?:\.\.\.\S+)?$'
+output = "{1}"
