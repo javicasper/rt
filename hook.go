@@ -9,6 +9,67 @@ import (
 	"strings"
 )
 
+// shellEscape wraps a string in single quotes if it contains shell metacharacters.
+func shellEscape(s string) string {
+	// If the string is safe (only alphanums, hyphens, underscores, dots, slashes, colons, @, =, +, commas),
+	// return as-is
+	safe := true
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' || c == '/' || c == ':' || c == '@' || c == '=' || c == '+' || c == ',') {
+			safe = false
+			break
+		}
+	}
+	if safe && s != "" {
+		return s
+	}
+	// Wrap in single quotes, escaping any existing single quotes
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+// shellSplit splits a command string into arguments, respecting quotes.
+func shellSplit(s string) []string {
+	var args []string
+	var current strings.Builder
+	inSingle := false
+	inDouble := false
+	escaped := false
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if escaped {
+			current.WriteByte(c)
+			escaped = false
+			continue
+		}
+		if c == '\\' && !inSingle {
+			escaped = true
+			continue
+		}
+		if c == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if c == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if c == ' ' && !inSingle && !inDouble {
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+			continue
+		}
+		current.WriteByte(c)
+	}
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+	return args
+}
+
 // hookInput is the JSON structure Claude Code sends to PreToolUse hooks.
 type hookInput struct {
 	ToolName  string          `json:"tool_name"`
@@ -96,8 +157,15 @@ func hookHandle() {
 		rtBin = "rt"
 	}
 
-	// Rewrite the command to go through rt
-	newCmd := fmt.Sprintf("%s run %s", rtBin, cmdStr)
+	// Rewrite the command to go through rt.
+	// Shell-escape each argument to protect metacharacters like (, ), |
+	// from being interpreted when Claude Code runs this via sh -c.
+	parts := shellSplit(cmdStr)
+	var escaped []string
+	for _, p := range parts {
+		escaped = append(escaped, shellEscape(p))
+	}
+	newCmd := fmt.Sprintf("%s run %s", rtBin, strings.Join(escaped, " "))
 
 	out := hookOutput{
 		HookSpecificOutput: hookSpecific{
