@@ -16,6 +16,14 @@ func cmdRun(args []string) {
 		os.Exit(1)
 	}
 
+	// If first arg is "--", treat the rest as a single shell string (passthrough mode).
+	// This preserves pipes, redirections, &&, etc.
+	shellMode := false
+	if args[0] == "--" {
+		args = args[1:]
+		shellMode = true
+	}
+
 	cmdStr := strings.Join(args, " ")
 
 	filters, err := loadFiltersWithCache()
@@ -30,6 +38,9 @@ func cmdRun(args []string) {
 	var result runResult
 	if f != nil && f.Run != "" {
 		result = runCommand(f.Run)
+	} else if shellMode || f == nil {
+		// Passthrough or explicit shell mode: use sh -c to preserve pipes, redirections, etc.
+		result = runCommand(cmdStr)
 	} else {
 		result = runCommandFromArgs(args)
 	}

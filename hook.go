@@ -147,9 +147,6 @@ func hookHandle() {
 	}
 
 	f := matchFilter(filters, cmdStr)
-	if f == nil {
-		return // no filter — let it pass through unchanged
-	}
 
 	// Find rt binary path
 	rtBin, err := os.Executable()
@@ -157,15 +154,23 @@ func hookHandle() {
 		rtBin = "rt"
 	}
 
-	// Rewrite the command to go through rt.
-	// Shell-escape each argument to protect metacharacters like (, ), |
-	// from being interpreted when Claude Code runs this via sh -c.
-	parts := shellSplit(cmdStr)
-	var escaped []string
-	for _, p := range parts {
-		escaped = append(escaped, shellEscape(p))
+	// Rewrite all commands to go through rt, even without a matching filter.
+	// This lets rt record passthrough stats so "rt suggest" can identify
+	// commands that would benefit from a filter.
+	var newCmd string
+	if f != nil {
+		// Filter matched: shell-escape each arg so runCommandFromArgs works correctly.
+		parts := shellSplit(cmdStr)
+		var escaped []string
+		for _, p := range parts {
+			escaped = append(escaped, shellEscape(p))
+		}
+		newCmd = fmt.Sprintf("%s run %s", rtBin, strings.Join(escaped, " "))
+	} else {
+		// No filter: pass the whole command as a single quoted arg so
+		// cmdRun can forward it to sh -c preserving pipes, redirections, etc.
+		newCmd = fmt.Sprintf("%s run -- %s", rtBin, shellEscape(cmdStr))
 	}
-	newCmd := fmt.Sprintf("%s run %s", rtBin, strings.Join(escaped, " "))
 
 	out := hookOutput{
 		HookSpecificOutput: hookSpecific{

@@ -1,0 +1,6 @@
+command = ["ls -la *", "ls -la", "ls -l *", "ls -l"]
+skip = ['^total \d+']
+
+[[replace]]
+pattern = '^[drwx\-lst@]+\s+\d+\s+\S+\s+\S+\s+(\S+)\s+(\w+ \d+ [\d:]+)\s+(.+)$'
+output = "{1}\t{2}\t{3}"
