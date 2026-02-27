@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tiktoken-go/tokenizer"
 	_ "modernc.org/sqlite"
 )
 
@@ -48,8 +49,22 @@ func openStatsDB() (*sql.DB, error) {
 	return db, nil
 }
 
-// estimateTokens gives a rough token count (chars / 4 is a reasonable approximation).
+var tokenCodec *tokenizer.Codec
+
+func init() {
+	codec, err := tokenizer.Get(tokenizer.Cl100kBase)
+	if err != nil {
+		// Fallback: will use len/4 if codec is nil
+		return
+	}
+	tokenCodec = &codec
+}
+
 func estimateTokens(s string) int {
+	if tokenCodec != nil {
+		ids, _, _ := (*tokenCodec).Encode(s)
+		return len(ids)
+	}
 	return (len(s) + 3) / 4
 }
 
