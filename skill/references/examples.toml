@@ -43,6 +43,19 @@ skip = [
   "^\\[=+>\\s*\\]",       # progress bars
 ]
 
+# ─── STEP 2b: keep ──────────────────────────────────────────────────────────
+
+# keep: allowlist — keep only lines matching any regex.
+# If absent or empty, all lines pass through. Applied after skip.
+# Uncomment to use (mutually useful with skip — skip removes noise first,
+# then keep selects signal):
+#
+# keep = [
+#   "^FAIL ",
+#   "^ERROR:",
+#   "^Test Suites:",
+# ]
+
 # ─── STEP 3: [[replace]] ─────────────────────────────────────────────────────
 
 # Per-line regex transforms. Applied in array order.
@@ -62,6 +75,7 @@ output = "{1}: {2} → {3}"
 # ─── STEP 4: [on_success] / [on_failure] ─────────────────────────────────────
 
 [on_success]
+# Fields processed in order: start_at → skip → keep → head/tail → output
 # output: template. {output} = filtered output text.
 # head: keep first N lines
 # tail: keep last N lines
@@ -69,8 +83,20 @@ head = 30
 output = "{output}"
 
 [on_failure]
-# tail: keep last N lines of filtered output
-tail = 20
+# start_at: discard all lines before the first match of this regex.
+# Useful for jumping to a summary section (e.g. Jest's "Summary of all failing tests").
+start_at = "^Summary"
+# skip/keep: same as top-level but applied only in this branch
+skip = ["^Summary"]
+keep = [
+  "^FAIL ",
+  "Error:",
+  "Expected",
+  "Received",
+  "^Test Suites:",
+]
+# tail: keep last N lines of filtered output (alternative to keep)
+# tail = 20
 
 # ─── VARIANTS ────────────────────────────────────────────────────────────────
 # Must appear AFTER all top-level fields.

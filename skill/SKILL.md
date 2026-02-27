@@ -34,10 +34,14 @@ Steps execute in this fixed order — **do not rearrange them**:
 
 1. **`match_output`** — whole-output substring/regex checks; if matched, short-circuits the entire pipeline and emits immediately
 2. **`skip`** — line-level filtering (drop lines by regex)
-3. **`[[replace]]`** — per-line regex transforms applied to every remaining line, in array order
-4. **Exit-code branch** — `[on_success]` or `[on_failure]` depending on exit code
+3. **`keep`** — line-level allowlist (keep only lines matching any regex; if absent, all lines pass)
+4. **`[[replace]]`** — per-line regex transforms applied to every remaining line, in array order
+5. **Exit-code branch** — `[on_success]` or `[on_failure]` depending on exit code
 
 Within `[on_success]` and `[on_failure]`, fields are processed as:
+- `start_at` → discard all lines before the first match of a regex
+- `skip` → drop lines by regex
+- `keep` → keep only matching lines
 - `head` / `tail` → trim lines
 - `output` → final template render (`{output}` = the filtered text)
 
@@ -51,6 +55,7 @@ Within `[on_success]` and `[on_failure]`, fields are processed as:
 | `run` | string | (same as command) | Override the actual command executed. |
 | `match_output` | array of tables | `[]` | Whole-output checks. Short-circuit on first match. |
 | `skip` | array of strings (regex) | `[]` | Drop lines matching any regex. |
+| `keep` | array of strings (regex) | `[]` | Keep only lines matching any regex (allowlist). |
 | `[[replace]]` | array of tables | `[]` | Per-line regex replacements, in order. |
 | `strip_ansi` | bool | `false` | Strip ANSI escape sequences before pattern matching. |
 | `[on_success]` | table | (absent) | Output branch for exit code 0. |
@@ -99,7 +104,28 @@ skip = [
 
 ---
 
-### 4.3 `[[replace]]` — Per-Line Regex Transforms
+### 4.3 `keep` — Line Allowlist
+
+Keep only lines matching any regex pattern. Lines that don't match any pattern are dropped.
+
+```toml
+keep = [
+  "^FAIL ",
+  "^\\s+●",
+  "^Test Suites:",
+]
+```
+
+- Array of regex strings
+- A line is kept if it matches **any** regex in the array
+- If `keep` is absent or empty, all lines pass through
+- Applied after `skip`
+
+**When to use**: when you only care about specific patterns (e.g. failure lines in test output). Prefer `skip` when removing a few known patterns; use `keep` when you only want a few specific patterns.
+
+---
+
+### 4.4 `[[replace]]` — Per-Line Regex Transforms
 
 Applied to every line, in array order. Use to reformat noisy lines.
 
@@ -121,29 +147,43 @@ output = "compiling {1}@{2}"
 
 ---
 
-### 4.4 `[on_success]` / `[on_failure]` — Exit Code Branches
+### 4.5 `[on_success]` / `[on_failure]` — Exit Code Branches
+
+These blocks apply **after** the main pipeline (skip/keep/replace). They can further refine the output based on whether the command succeeded or failed.
 
 ```toml
 [on_success]
-output = "{output}"
+output = "All tests passed.\n{output}"
 
 [on_failure]
-tail = 20
+start_at = "^Summary of all failing tests"
+skip = ["^Summary of all failing tests"]
+keep = [
+  "^FAIL ",
+  "^\\s+●",
+  "Error:",
+  "Expected",
+  "Received",
+  "^Test Suites:",
+]
 ```
 
-**Fields**:
+**Fields** (processed in this order):
 
 | Field | Type | Description |
 |---|---|---|
-| `output` | string | Template for the final output. `{output}` = the filtered output text. |
+| `start_at` | string (regex) | Discard all lines before the first line matching this regex. Useful for jumping to a summary section. |
+| `skip` | array of strings (regex) | Drop lines matching any regex. |
+| `keep` | array of strings (regex) | Keep only lines matching any regex (allowlist). |
 | `head` | integer | Keep only the first N lines. |
 | `tail` | integer | Keep only the last N lines. |
+| `output` | string | Template for the final output. `{output}` = the filtered output text. |
 
-**When to use**: Always. Every filter should have at least `[on_success]` or `[on_failure]`. Use `[on_failure]` with `tail` to show enough context to diagnose errors.
+**When to use**: Always. Every filter should have at least `[on_success]` or `[on_failure]`. Use `[on_failure]` with `keep` to extract failure-relevant lines, or `tail` for a simple approach. Use `start_at` to jump to a summary section (e.g. Jest's "Summary of all failing tests").
 
 ---
 
-### 4.5 `[[variant]]` — Context-Aware Filter Delegation
+### 4.6 `[[variant]]` — Context-Aware Filter Delegation
 
 For commands that wrap different underlying tools (e.g. `npm test` may run Jest or Vitest).
 
@@ -204,9 +244,10 @@ Look for:
 1. Set `command` to match the command pattern
 2. Add `match_output` for well-known short-circuit cases
 3. Add `skip` to drop noise lines
-4. Add `[[replace]]` to reformat noisy-but-useful lines
-5. Write `[on_success]` with the desired output format
-6. Write `[on_failure]` with enough context to diagnose (`tail = 20` is a safe default)
+4. Add `keep` if you only want specific line patterns (allowlist)
+5. Add `[[replace]]` to reformat noisy-but-useful lines
+6. Write `[on_success]` with the desired output format
+7. Write `[on_failure]` — use `keep` to extract failure lines, `start_at` to jump to a summary section, or `tail = 20` as a simple fallback
 
 ### Step 3: Validate and test
 
@@ -285,5 +326,6 @@ output = "{1}"
 1. **Escape backslashes in TOML strings.** `\\d` in regular strings means `\d` in the regex.
 2. **`match_output` is a short-circuit.** If it matches, nothing else runs. It always runs first.
 3. **Don't over-filter.** Start with `skip` for noise removal. Only add `[[replace]]` if lines need reformatting.
-4. **Always include `[on_failure]`.** Users debugging failures need context. `tail = 20` is a safe default.
-5. **Test with real output.** A filter that works on a trimmed example may miss edge cases.
+4. **Always include `[on_failure]`.** Users debugging failures need context. Use `keep` for precise extraction, `start_at` to jump to summaries, or `tail = 20` as a simple fallback.
+5. **Prefer `skip` over `keep` for top-level filtering.** Use `keep` in `[on_failure]` when you need precise control over which failure lines to show.
+6. **Test with real output.** A filter that works on a trimmed example may miss edge cases.

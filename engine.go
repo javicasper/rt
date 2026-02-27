@@ -132,8 +132,23 @@ func applyReplace(lines []string, rules []ReplaceRule) []string {
 }
 
 func applyOutputBlock(block *OutputBlock, lines []string, full string) string {
+	if block.StartAt != "" {
+		if re, err := compileRegex(block.StartAt); err == nil {
+			for i, line := range lines {
+				if re.MatchString(line) {
+					lines = lines[i:]
+					full = strings.Join(lines, "\n")
+					break
+				}
+			}
+		}
+	}
 	if len(block.Skip) > 0 {
 		lines = applySkip(lines, block.Skip)
+		full = strings.Join(lines, "\n")
+	}
+	if len(block.Keep) > 0 {
+		lines = applyKeep(lines, block.Keep)
 		full = strings.Join(lines, "\n")
 	}
 	if block.Tail > 0 && len(lines) > block.Tail {

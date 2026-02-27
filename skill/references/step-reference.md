@@ -139,6 +139,30 @@ strip_ansi = true
 
 ---
 
+## `keep`
+
+**Type**: `array of strings` (each is a regex)
+**Required**: no
+**Default**: `[]`
+
+Keep only lines matching any of the given regexes (allowlist). Lines that don't match are dropped.
+
+```toml
+keep = [
+  "^FAIL ",
+  "^\\s+●",
+  "Error:",
+  "^Test Suites:",
+]
+```
+
+**Behavior**:
+- A line is kept if it matches **any** regex in the array
+- If `keep` is absent or empty, all lines pass through
+- Applied after `skip`, before `[[replace]]`
+
+---
+
 ## `[on_success]`
 
 **Type**: table
@@ -148,18 +172,20 @@ Output branch executed when the command exits with code 0.
 
 ```toml
 [on_success]
-output = "{output}"
+output = "All tests passed.\n{output}"
 head = 20
-tail = 10
 ```
 
-**Fields**:
+**Fields** (processed in this order):
 
 | Field | Type | Description |
 |---|---|---|
-| `output` | string | Template. `{output}` = the filtered output text. |
+| `start_at` | string (regex) | Discard all lines before the first line matching this regex. |
+| `skip` | array of strings (regex) | Drop lines matching any regex. |
+| `keep` | array of strings (regex) | Keep only lines matching any regex (allowlist). |
 | `head` | integer | Keep only the first N lines of filtered output. |
 | `tail` | integer | Keep only the last N lines of filtered output. |
+| `output` | string | Template. `{output}` = the filtered output text. |
 
 ---
 
@@ -172,10 +198,18 @@ Output branch executed when the command exits with a non-zero code. Same fields 
 
 ```toml
 [on_failure]
-tail = 20
+start_at = "^Summary of all failing tests"
+skip = ["^Summary of all failing tests"]
+keep = [
+  "^FAIL ",
+  "Error:",
+  "Expected",
+  "Received",
+  "^Test Suites:",
+]
 ```
 
-**Recommendation**: Always include `[on_failure]` with at least `tail = 20`. Users debugging failures need context.
+**Recommendation**: Use `keep` to extract failure-relevant lines, or `tail` for a simple approach. Use `start_at` to jump to a summary section when the command repeats information (e.g. Jest's "Summary of all failing tests").
 
 ---
 

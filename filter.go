@@ -46,10 +46,12 @@ type MatchOutputRule struct {
 }
 
 type OutputBlock struct {
-	Output string   `toml:"output"`
-	Head   int      `toml:"head"`
-	Tail   int      `toml:"tail"`
-	Skip   []string `toml:"skip"`
+	Output  string   `toml:"output"`
+	Head    int      `toml:"head"`
+	Tail    int      `toml:"tail"`
+	Skip    []string `toml:"skip"`
+	Keep    []string `toml:"keep"`
+	StartAt string   `toml:"start_at"`
 }
 
 type Variant struct {

@@ -12,15 +12,32 @@ skip = [
   "^\\s*$",
   "^\\s*at .*\\(.*:\\d+:\\d+\\)",
   "^\\s*at .*node_modules",
-  "^\\s*Test Suites:",
   "^\\s*Snapshots:",
   "^\\s*Time:",
   "^\\s*Ran all test suites",
   "^PASS ",
+  "^\\s*Require stack:",
 ]
 
 [on_success]
-output = "{output}"
+output = "All tests passed.\n{output}"
 
 [on_failure]
-tail = 30
+start_at = "^Summary of all failing tests"
+skip = ["^Summary of all failing tests"]
+keep = [
+  "^FAIL ",
+  "^\\s+●",
+  "Cannot find module",
+  "SyntaxError",
+  "TypeError",
+  "ReferenceError",
+  "Error:",
+  "Expected",
+  "Received",
+  "expect\\(",
+  "^\\s*>\\s*\\d+\\s*\\|",
+  "^\\s+\\d+ (failing|failed)",
+  "^Test Suites:",
+  "^Tests:",
+]
