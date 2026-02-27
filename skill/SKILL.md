@@ -1,7 +1,7 @@
 ---
 name: rt-filter
 description: This skill should be used when the user asks to "create a filter", "write an rt filter", "add a filter for <tool>", "how do I filter output", or needs guidance on rt filter TOML format, step types, or placement conventions.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # rt Filter Authoring
