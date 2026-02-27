@@ -33,6 +33,11 @@ func applyFilter(f *Filter, raw string, exitCode int) string {
 		lines = applySkip(lines, f.Skip)
 	}
 
+	// Apply keep rules (allowlist — only retain matching lines)
+	if len(f.Keep) > 0 {
+		lines = applyKeep(lines, f.Keep)
+	}
+
 	// Apply replace rules
 	if len(f.Replace) > 0 {
 		lines = applyReplace(lines, f.Replace)
@@ -73,6 +78,26 @@ func applySkip(lines []string, patterns []string) []string {
 	return out
 }
 
+func applyKeep(lines []string, patterns []string) []string {
+	regexes := make([]*regexp.Regexp, 0, len(patterns))
+	for _, p := range patterns {
+		if re, err := compileRegex(p); err == nil {
+			regexes = append(regexes, re)
+		}
+	}
+
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		for _, re := range regexes {
+			if re.MatchString(line) {
+				out = append(out, line)
+				break
+			}
+		}
+	}
+	return out
+}
+
 func applyReplace(lines []string, rules []ReplaceRule) []string {
 	type compiledRule struct {
 		re     *regexp.Regexp
@@ -107,6 +132,10 @@ func applyReplace(lines []string, rules []ReplaceRule) []string {
 }
 
 func applyOutputBlock(block *OutputBlock, lines []string, full string) string {
+	if len(block.Skip) > 0 {
+		lines = applySkip(lines, block.Skip)
+		full = strings.Join(lines, "\n")
+	}
 	if block.Tail > 0 && len(lines) > block.Tail {
 		lines = lines[len(lines)-block.Tail:]
 		full = strings.Join(lines, "\n")

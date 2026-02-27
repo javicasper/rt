@@ -30,8 +30,12 @@ func main() {
 		cmdEject(os.Args[2:])
 	case "cache":
 		cmdCache(os.Args[2:])
+	case "hook":
+		cmdHook(os.Args[2:])
+	case "suggest":
+		cmdSuggest()
 	case "skill":
-		cmdSkill()
+		cmdSkill(os.Args[2:])
 	case "--version", "-V":
 		fmt.Println("rt", version)
 	case "--help", "-h", "help":
@@ -53,11 +57,14 @@ Commands:
   ls                 List available filters
   show <filter>      Show filter TOML source
   check <file>       Validate a filter TOML file
-  gain [--by-filter] Show token savings statistics
+  gain [--by-filter|--log] Show token savings statistics
   add <file|url>     Install a filter
   eject <filter>     Copy built-in filter to user dir for customization
+  suggest            Suggest commands that would benefit from a filter
   cache clear|info   Manage filter cache
-  skill              Install the Claude Code skill for filter authoring
+  hook install       Install Claude Code PreToolUse hook (--global for ~/.claude)
+  hook handle        Handle a PreToolUse hook invocation (internal)
+  skill install      Install the Claude Code skill for filter authoring
 
 Options:
   -V, --version      Print version

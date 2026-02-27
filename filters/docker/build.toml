@@ -1,0 +1,19 @@
+command = ["docker build", "docker buildx build"]
+
+skip = [
+  "^ +=> +=> [a-z]",
+  "^ +=> +\\[internal\\]",
+  "^Sending build context",
+  "^\\s*$",
+]
+
+[on_success]
+skip = [
+  "^ +=> +\\[[0-9/]+\\]",
+  "^Step [0-9/]+ : ",
+  "^ ---> [0-9a-f]+",
+  "^ ---> Using cache",
+]
+
+[on_failure]
+tail = 50

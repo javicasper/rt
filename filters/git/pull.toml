@@ -1,0 +1,34 @@
+command = "git pull"
+
+strip_ansi = true
+
+skip = [
+  "^remote:",
+  "^\\s*$",
+  "(?i)^Enumerating objects:",
+  "(?i)^Counting objects:",
+  "(?i)^Compressing objects:",
+  "(?i)^Unpacking objects:",
+  "(?i)^Escribiendo objetos:",
+  "(?i)^Contando objetos:",
+  "(?i)^Comprimiendo objetos:",
+  "(?i)^Enumerando objetos:",
+  "(?i)^Desempaquetando objetos:",
+  "(?i)^Total ",
+  "(?i)^From ",
+  "(?i)^Desde ",
+]
+
+[[match_output]]
+contains = "Already up to date"
+output = "ok (up-to-date)"
+
+[[match_output]]
+contains = "ya actualizado"
+output = "ok (up-to-date)"
+
+[on_success]
+output = "{output}"
+
+[on_failure]
+tail = 5

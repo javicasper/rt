@@ -1,0 +1,23 @@
+command = ["git stash", "git stash pop", "git stash apply", "git stash drop", "git stash list"]
+
+skip = [
+  "^\\s*$",
+]
+
+[[match_output]]
+contains = "No local changes to save"
+output = "no changes to stash"
+
+[[match_output]]
+contains = "No hay cambios locales"
+output = "no changes to stash"
+
+[[match_output]]
+contains = "No stash entries found"
+output = "no stash entries"
+
+[on_success]
+output = "{output}"
+
+[on_failure]
+tail = 5

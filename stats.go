@@ -138,6 +138,91 @@ func printGainSummary() {
 	fmt.Printf("  tokens saved:   %d est. (%.1f%%)\n", saved, pct)
 }
 
+func printGainLog() {
+	db, err := openStatsDB()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "rt: error reading stats: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	rows, err := db.Query(`SELECT filter_name, command, input_tokens, output_tokens, created_at FROM runs ORDER BY id DESC LIMIT 50`)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "rt: error reading stats: %v\n", err)
+		os.Exit(1)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var filter, cmd, ts string
+		var inTok, outTok int
+		if err := rows.Scan(&filter, &cmd, &inTok, &outTok, &ts); err != nil {
+			continue
+		}
+		saved := inTok - outTok
+		pct := 0.0
+		if inTok > 0 {
+			pct = float64(saved) / float64(inTok) * 100
+		}
+		// Trim timestamp to just time
+		if len(ts) >= 16 {
+			ts = ts[5:16]
+		}
+		fmt.Printf("  %s  %-18s %-35s %4d → %4d tok (%.0f%%)\n",
+			ts, filter, cmd, inTok, outTok, pct)
+	}
+}
+
+type suggestEntry struct {
+	BaseCmd     string
+	Runs        int
+	TotalTokens int
+	AvgTokens   int
+}
+
+func querySuggestions(minTokens int) ([]suggestEntry, error) {
+	db, err := openStatsDB()
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	// Extract base command (first 1-3 words) from passthrough runs,
+	// group by it, and find those with significant token usage.
+	rows, err := db.Query(`
+		SELECT
+			CASE
+				WHEN INSTR(SUBSTR(command, INSTR(command, ' ') + 1), ' ') > 0
+				THEN SUBSTR(command, 1, INSTR(command, ' ') + INSTR(SUBSTR(command, INSTR(command, ' ') + 1), ' ') - 1)
+				ELSE command
+			END AS base_cmd,
+			COUNT(*) AS runs,
+			SUM(input_tokens) AS total_tokens
+		FROM runs
+		WHERE filter_name = 'passthrough'
+		GROUP BY base_cmd
+		HAVING total_tokens >= ?
+		ORDER BY total_tokens DESC
+	`, minTokens)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []suggestEntry
+	for rows.Next() {
+		var e suggestEntry
+		if err := rows.Scan(&e.BaseCmd, &e.Runs, &e.TotalTokens); err != nil {
+			return nil, err
+		}
+		if e.Runs > 0 {
+			e.AvgTokens = e.TotalTokens / e.Runs
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
 func printGainByFilter() {
 	entries, err := queryGainByFilter()
 	if err != nil {

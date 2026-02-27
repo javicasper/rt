@@ -1,0 +1,26 @@
+command = "git commit"
+
+skip = [
+  "^\\s*$",
+  "^ \\d+ files? changed",
+  "^ \\d+ insertion",
+  "^ \\d+ deletion",
+  "^Author identity unknown",
+  "^Please tell me who you are",
+  "^  git config",
+]
+
+[[match_output]]
+contains = "nothing to commit"
+output = "nothing to commit"
+
+[[match_output]]
+contains = "nada para hacer commit"
+output = "nothing to commit"
+
+[[replace]]
+pattern = '^\[(\S+)\s+(\w+)\]\s+(.+)$'
+output = "ok {2} ({1}) {3}"
+
+[on_failure]
+tail = 5

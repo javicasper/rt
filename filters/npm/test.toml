@@ -1,4 +1,4 @@
-command = ["npm test", "pnpm test", "yarn test"]
+command = ["npm test", "pnpm test", "yarn test", "npm run test", "npm run test:i"]
 
 strip_ansi = true
 
@@ -9,10 +9,18 @@ skip = [
   "^\\s*ERR!",
   "^\\s*yarn run",
   "^\\s*\\$\\s",
+  "^\\s*$",
+  "^\\s*at .*\\(.*:\\d+:\\d+\\)",
+  "^\\s*at .*node_modules",
+  "^\\s*Test Suites:",
+  "^\\s*Snapshots:",
+  "^\\s*Time:",
+  "^\\s*Ran all test suites",
+  "^PASS ",
 ]
 
 [on_success]
 output = "{output}"
 
 [on_failure]
-tail = 20
+tail = 30

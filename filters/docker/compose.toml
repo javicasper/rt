@@ -1,0 +1,20 @@
+command = "docker compose *"
+
+keep = [
+  "Started",
+  "Removed",
+]
+
+skip = [
+  "^\\s*Network ",
+]
+
+[[replace]]
+pattern = '^\s*Container (\S+)\s+(Started|Removed)\s*$'
+output = "{2} {1}"
+
+[on_success]
+output = "{output}"
+
+[on_failure]
+tail = 20

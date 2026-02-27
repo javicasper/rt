@@ -1,2 +1,2 @@
 command = "docker ps"
-run = "docker ps --format table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+run = 'docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'

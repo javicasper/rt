@@ -118,15 +118,21 @@ func cmdCheck(args []string) {
 }
 
 func cmdGain(args []string) {
-	byFilter := false
+	mode := ""
 	for _, a := range args {
-		if a == "--by-filter" {
-			byFilter = true
+		switch a {
+		case "--by-filter":
+			mode = "by-filter"
+		case "--log":
+			mode = "log"
 		}
 	}
-	if byFilter {
+	switch mode {
+	case "by-filter":
 		printGainByFilter()
-	} else {
+	case "log":
+		printGainLog()
+	default:
 		printGainSummary()
 	}
 }
@@ -247,95 +253,69 @@ func cmdCache(args []string) {
 	}
 }
 
-func cmdSkill() {
-	skillDir := filepath.Join(os.Getenv("HOME"), ".claude", "skills")
-	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+func cmdSuggest() {
+	entries, err := querySuggestions(500) // min 500 tokens total
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "rt: error reading stats: %v\n", err)
+		os.Exit(1)
+	}
+	if len(entries) == 0 {
+		fmt.Println("no suggestions — all frequent commands have filters or are below threshold")
+		return
+	}
+	fmt.Println("commands without filters (sorted by total tokens wasted):")
+	for _, e := range entries {
+		fmt.Printf("  %-35s runs: %4d  avg: %5d tok  total: %d tok\n",
+			e.BaseCmd, e.Runs, e.AvgTokens, e.TotalTokens)
+	}
+}
+
+func cmdSkill(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "rt: usage: rt skill install")
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "install":
+		skillInstall()
+	default:
+		fmt.Fprintf(os.Stderr, "rt: unknown skill command: %s\n", args[0])
+		os.Exit(1)
+	}
+}
+
+func skillInstall() {
+	destDir := filepath.Join(os.Getenv("HOME"), ".claude", "skills", "rt-filter")
+
+	// Remove old installation
+	_ = os.RemoveAll(destDir)
+
+	// Copy from embedded skill FS
+	if err := copyEmbeddedDir(embeddedSkill, "skill", destDir); err != nil {
 		fmt.Fprintf(os.Stderr, "rt: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Read skill from embedded or from alongside binary
-	srcPath := filepath.Join(projectDir(), "SKILL.md")
-	data, err := os.ReadFile(srcPath)
-	if err != nil {
-		// Fallback: use the embedded skill content
-		data = []byte(embeddedSkillContent)
-	}
-
-	dest := filepath.Join(skillDir, "rt-filter.md")
-	if err := os.WriteFile(dest, data, 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "rt: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("skill installed: %s\n", dest)
+	fmt.Printf("skill installed: %s\n", destDir)
 }
 
-func projectDir() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return "."
-	}
-	return filepath.Dir(exe)
+func copyEmbeddedDir(fsys fs.FS, root, dst string) error {
+	return fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(root, path)
+		target := filepath.Join(dst, rel)
+
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+
+		data, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0o644)
+	})
 }
-
-const embeddedSkillContent = `# Skill: Creating rt filters
-
-## What is rt?
-
-rt (reduce tokens) filters command output to minimize token usage in LLM conversations.
-Filters are TOML files stored in ~/.config/rt/filters/.
-
-## Filter TOML format
-
-` + "```" + `toml
-# Required: command pattern(s) to match. Use * for wildcard args.
-command = "git status"
-# or multiple: command = ["npm test", "pnpm test"]
-
-# Optional: override the actual command executed
-run = "git status --porcelain -b"
-
-# Optional: skip lines matching these regex patterns
-skip = [
-  "^\\s*Compiling ",
-  "^\\s*Downloading ",
-]
-
-# Optional: replace lines matching regex. Use {1}, {2} for capture groups.
-[[replace]]
-pattern = '^## (\\S+?)(?:\\.\\.\\.\\S+)?$'
-output = "{1}"
-
-# Optional: short-circuit if output contains/matches a pattern
-[[match_output]]
-contains = "not a git repository"
-output = "Not a git repository"
-
-# Optional: post-processing on success (exit code 0)
-[on_success]
-output = "{output}"  # {output} = the filtered text
-
-# Optional: post-processing on failure (exit code != 0)
-[on_failure]
-tail = 20  # only keep last 20 lines on error
-` + "```" + `
-
-## File naming convention
-
-Filters go in ~/.config/rt/filters/ with path matching the command:
-- git status → git/status.toml
-- cargo install → cargo/install.toml
-- npm test → npm/test.toml
-
-## Validation
-
-Run ` + "`rt check path/to/filter.toml`" + ` to validate a filter before installing.
-
-## Testing
-
-After creating a filter, test it with:
-` + "```" + `bash
-rt run <command>       # see filtered output
-` + "```" + `
-`

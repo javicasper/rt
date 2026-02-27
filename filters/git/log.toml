@@ -1,2 +1,13 @@
 command = "git log"
 run = "git log --oneline -20"
+
+[[match_output]]
+contains = "does not have any commits"
+output = "no commits yet"
+
+[[match_output]]
+contains = "no tiene ningún commit"
+output = "no commits yet"
+
+[on_failure]
+tail = 3

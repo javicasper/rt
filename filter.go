@@ -21,6 +21,7 @@ type Filter struct {
 	Run          string            `toml:"run"`
 	StripAnsi    bool              `toml:"strip_ansi"`
 	Skip         []string          `toml:"skip"`
+	Keep         []string          `toml:"keep"`
 	Replace      []ReplaceRule     `toml:"replace"`
 	MatchOutput  []MatchOutputRule `toml:"match_output"`
 	OnSuccess    *OutputBlock      `toml:"on_success"`
@@ -45,9 +46,10 @@ type MatchOutputRule struct {
 }
 
 type OutputBlock struct {
-	Output string `toml:"output"`
-	Head   int    `toml:"head"`
-	Tail   int    `toml:"tail"`
+	Output string   `toml:"output"`
+	Head   int      `toml:"head"`
+	Tail   int      `toml:"tail"`
+	Skip   []string `toml:"skip"`
 }
 
 type Variant struct {

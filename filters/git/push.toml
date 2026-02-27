@@ -1,15 +1,30 @@
 command = "git push"
 
+strip_ansi = true
+
 skip = [
   "^remote:",
-  "^To https?://",
-  "^Enumerating objects:",
-  "^Counting objects:",
-  "^Compressing objects:",
-  "^Writing objects:",
-  "^Delta resolution:",
-  "^Total ",
+  "^To ",
+  "(?i)^Enumerating objects:",
+  "(?i)^Counting objects:",
+  "(?i)^Compressing objects:",
+  "(?i)^Escribiendo objetos:",
+  "(?i)^Contando objetos:",
+  "(?i)^Comprimiendo objetos:",
+  "(?i)^Enumerando objetos:",
+  "(?i)^Writing objects:",
+  "(?i)^Delta resolution:",
+  "(?i)^Total ",
+  "^\\s*$",
 ]
+
+[[match_output]]
+contains = "Everything up-to-date"
+output = "ok (up-to-date)"
+
+[[match_output]]
+contains = "ya actualizado"
+output = "ok (up-to-date)"
 
 [on_success]
 output = "{output}"

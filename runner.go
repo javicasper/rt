@@ -13,14 +13,13 @@ type runResult struct {
 	ExitCode int
 }
 
-// runCommand executes a command string and captures combined stdout+stderr.
+// runCommand executes a command string via sh -c to support quoting and special characters.
 func runCommand(cmdStr string) runResult {
-	parts := strings.Fields(cmdStr)
-	if len(parts) == 0 {
+	if cmdStr == "" {
 		return runResult{Output: "", ExitCode: 1}
 	}
 
-	cmd := exec.Command(parts[0], parts[1:]...)
+	cmd := exec.Command("sh", "-c", cmdStr)
 	cmd.Env = os.Environ()
 	cmd.Stdin = os.Stdin
 
@@ -44,32 +43,12 @@ func runCommand(cmdStr string) runResult {
 	}
 }
 
-// runCommandRaw executes the original command args (not the filter's run override).
+// runCommandFromArgs executes the original command args (not the filter's run override).
 func runCommandFromArgs(args []string) runResult {
 	if len(args) == 0 {
 		return runResult{Output: "", ExitCode: 1}
 	}
 
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Env = os.Environ()
-	cmd.Stdin = os.Stdin
-
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-
-	err := cmd.Run()
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = 1
-		}
-	}
-
-	return runResult{
-		Output:   buf.String(),
-		ExitCode: exitCode,
-	}
+	// Join args and run via shell to handle quoting consistently
+	return runCommand(strings.Join(args, " "))
 }

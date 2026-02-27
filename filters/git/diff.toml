@@ -3,6 +3,24 @@ command = "git diff"
 skip = [
   "^index [0-9a-f]",
   "^diff --git",
+  "^old mode ",
+  "^new mode ",
+  "^similarity index ",
+  "^rename from ",
+  "^rename to ",
+  "^deleted file mode ",
+  "^new file mode ",
   "^--- a/",
-  "^\\+\\+\\+ b/",
+  "^--- /dev/null",
+  "^\\+\\+\\+ /dev/null",
 ]
+
+# Simplify +++ b/path/to/file → === path/to/file
+[[replace]]
+pattern = '^\+\+\+ b/(.+)$'
+output = "=== {1}"
+
+# Simplify @@ -N,M +N,M @@ context → @@ context
+[[replace]]
+pattern = '^@@ -\d+,?\d* \+(\d+),?\d* @@ ?(.*)$'
+output = "@@ L{1} {2}"

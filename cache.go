@@ -53,6 +53,15 @@ func readCache(path string) ([]Filter, error) {
 		return nil, err
 	}
 
+	// Check if the binary itself is newer than cache (embedded filters changed)
+	if exe, err := os.Executable(); err == nil {
+		if exeInfo, err := os.Stat(exe); err == nil {
+			if exeInfo.ModTime().After(info.ModTime()) {
+				return nil, fmt.Errorf("cache stale: binary newer")
+			}
+		}
+	}
+
 	// Check if any user filter is newer than cache
 	if isUserDirNewer(info.ModTime()) {
 		return nil, fmt.Errorf("cache stale")

@@ -1,0 +1,15 @@
+command = "npm run *"
+
+skip = [
+  "^> .+@",
+  "^\\s*npm warn",
+  "^\\s*npm notice",
+  "^\\s*npm WARN",
+  "^\\s*$",
+]
+
+[on_success]
+output = "{output}"
+
+[on_failure]
+tail = 20

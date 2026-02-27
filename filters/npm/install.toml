@@ -1,8 +1,14 @@
-command = ["npm install", "pnpm install", "yarn install"]
+command = ["npm install", "npm ci", "pnpm install", "yarn install"]
 
 skip = [
   "^\\s*npm (warn|notice|WARN|verbose|info|timing)",
   "^\\s*WARN\\s",
+  "^\\s*$",
+  "^added \\d+ packages",
+  "^up to date",
+  "^found \\d+ vulnerabilities",
+  "^\\d+ packages are looking for funding",
+  "^  run `npm fund`",
 ]
 
 [on_success]
