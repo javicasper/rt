@@ -176,14 +176,45 @@ func toFilterName(path string) string {
 	return filepath.ToSlash(path)
 }
 
+// extractMatchCmd extracts the command segment to match against filters.
+// For chains like "cd /tmp && kubectl get pods", we take the last segment.
+// For pipes like "kubectl get pods | head -5", we take the first command.
+func extractMatchCmd(cmdStr string) string {
+	// Split by chain operators (&&, ||, ;) — take the last segment
+	best := -1
+	bestLen := 0
+	for _, sep := range []string{" && ", " || ", "; "} {
+		if idx := strings.LastIndex(cmdStr, sep); idx > best {
+			best = idx
+			bestLen = len(sep)
+		}
+	}
+	result := cmdStr
+	if best >= 0 {
+		candidate := strings.TrimSpace(cmdStr[best+bestLen:])
+		if candidate != "" {
+			result = candidate
+		}
+	}
+
+	// For pipes, take the first segment
+	if idx := strings.Index(result, " | "); idx > 0 {
+		result = strings.TrimSpace(result[:idx])
+	}
+
+	return result
+}
+
 // matchFilter finds the best filter for a command string.
 func matchFilter(filters []Filter, cmdStr string) *Filter {
+	matchCmd := extractMatchCmd(cmdStr)
+
 	var best *Filter
 	bestScore := -1
 
 	for i := range filters {
 		for _, pattern := range filters[i].Command {
-			score := matchScore(pattern, cmdStr)
+			score := matchScore(pattern, matchCmd)
 			if score > bestScore {
 				bestScore = score
 				best = &filters[i]

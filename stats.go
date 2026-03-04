@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -195,6 +196,53 @@ type suggestEntry struct {
 	AvgTokens   int
 }
 
+// extractBaseCmd returns the first 1-2 words of the last meaningful command
+// in a shell chain. For "cd /path && kubectl logs foo", it returns "kubectl logs".
+// For "grep -r pattern .", it returns "grep -r".
+func extractBaseCmd(command string) string {
+	// Find the rightmost shell chain operator (&&, ||, ;, |) and take
+	// the command after it. We scan right-to-left for the last operator.
+	best := -1
+	bestLen := 0
+	for _, sep := range []string{"&&", "||", "; ", "| "} {
+		if idx := strings.LastIndex(command, sep); idx > best {
+			best = idx
+			bestLen = len(sep)
+		}
+	}
+
+	last := command
+	if best >= 0 {
+		candidate := strings.TrimSpace(command[best+bestLen:])
+		if candidate != "" {
+			last = candidate
+		}
+	}
+
+	// Take first 2 words as base command
+	fields := strings.Fields(last)
+	if len(fields) == 0 {
+		return command
+	}
+	// Skip words that look like shell artifacts (start with quote, redirect, etc.)
+	start := 0
+	for start < len(fields) && (fields[start] == "" || fields[start][0] == '\'' || fields[start][0] == '"' || fields[start][0] == '(' || fields[start] == "2>/dev/null" || fields[start] == "2>&1") {
+		start++
+	}
+	if start >= len(fields) {
+		start = 0
+	}
+	fields = fields[start:]
+
+	if len(fields) == 0 {
+		return command
+	}
+	if len(fields) == 1 {
+		return fields[0]
+	}
+	return fields[0] + " " + fields[1]
+}
+
 func querySuggestions(minTokens int) ([]suggestEntry, error) {
 	db, err := openStatsDB()
 	if err != nil {
@@ -202,40 +250,89 @@ func querySuggestions(minTokens int) ([]suggestEntry, error) {
 	}
 	defer db.Close()
 
-	// Extract base command (first 1-3 words) from passthrough runs,
-	// group by it, and find those with significant token usage.
 	rows, err := db.Query(`
-		SELECT
-			CASE
-				WHEN INSTR(SUBSTR(command, INSTR(command, ' ') + 1), ' ') > 0
-				THEN SUBSTR(command, 1, INSTR(command, ' ') + INSTR(SUBSTR(command, INSTR(command, ' ') + 1), ' ') - 1)
-				ELSE command
-			END AS base_cmd,
-			COUNT(*) AS runs,
-			SUM(input_tokens) AS total_tokens
+		SELECT command, input_tokens
 		FROM runs
 		WHERE filter_name = 'passthrough'
-		GROUP BY base_cmd
-		HAVING total_tokens >= ?
-		ORDER BY total_tokens DESC
-	`, minTokens)
+	`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var entries []suggestEntry
+	// Group by extracted base command in Go
+	type accum struct {
+		runs        int
+		totalTokens int
+	}
+	groups := make(map[string]*accum)
+
 	for rows.Next() {
-		var e suggestEntry
-		if err := rows.Scan(&e.BaseCmd, &e.Runs, &e.TotalTokens); err != nil {
+		var cmd string
+		var tokens int
+		if err := rows.Scan(&cmd, &tokens); err != nil {
 			return nil, err
 		}
-		if e.Runs > 0 {
-			e.AvgTokens = e.TotalTokens / e.Runs
+		base := extractBaseCmd(cmd)
+		a, ok := groups[base]
+		if !ok {
+			a = &accum{}
+			groups[base] = a
 		}
-		entries = append(entries, e)
+		a.runs++
+		a.totalTokens += tokens
 	}
+
+	var entries []suggestEntry
+	for base, a := range groups {
+		if a.totalTokens < minTokens {
+			continue
+		}
+		avg := 0
+		if a.runs > 0 {
+			avg = a.totalTokens / a.runs
+		}
+		entries = append(entries, suggestEntry{
+			BaseCmd:     base,
+			Runs:        a.runs,
+			TotalTokens: a.totalTokens,
+			AvgTokens:   avg,
+		})
+	}
+
+	// Sort by total tokens descending
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].TotalTokens > entries[j].TotalTokens
+	})
+
 	return entries, nil
+}
+
+func suggestIgnorePath() string {
+	cfg, err := os.UserConfigDir()
+	if err != nil {
+		return filepath.Join(os.Getenv("HOME"), ".config", "rt", "suggest-ignore")
+	}
+	return filepath.Join(cfg, "rt", "suggest-ignore")
+}
+
+func loadSuggestIgnore() ([]string, error) {
+	data, err := os.ReadFile(suggestIgnorePath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var patterns []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns, nil
 }
 
 func printGainByFilter() {

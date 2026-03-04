@@ -270,6 +270,29 @@ func cmdSuggest() {
 		fmt.Fprintf(os.Stderr, "rt: error reading stats: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Filter out ignored patterns
+	ignorePatterns, err := loadSuggestIgnore()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "rt: warning: could not load suggest-ignore: %v\n", err)
+	}
+	if len(ignorePatterns) > 0 {
+		var filtered []suggestEntry
+		for _, e := range entries {
+			ignored := false
+			for _, p := range ignorePatterns {
+				if strings.HasPrefix(e.BaseCmd, p) {
+					ignored = true
+					break
+				}
+			}
+			if !ignored {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
 	if len(entries) == 0 {
 		fmt.Println("no suggestions — all frequent commands have filters or are below threshold")
 		return
@@ -279,6 +302,61 @@ func cmdSuggest() {
 		fmt.Printf("  %-35s runs: %4d  avg: %5d tok  total: %d tok\n",
 			e.BaseCmd, e.Runs, e.AvgTokens, e.TotalTokens)
 	}
+}
+
+func cmdSuggestIgnore(args []string) {
+	// No args: list current patterns
+	if len(args) == 0 {
+		patterns, err := loadSuggestIgnore()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "rt: error reading suggest-ignore: %v\n", err)
+			os.Exit(1)
+		}
+		if len(patterns) == 0 {
+			fmt.Println("no ignored patterns")
+			return
+		}
+		for _, p := range patterns {
+			fmt.Println(p)
+		}
+		return
+	}
+
+	pattern := strings.Join(args, " ")
+
+	// Check for duplicates
+	patterns, err := loadSuggestIgnore()
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "rt: error reading suggest-ignore: %v\n", err)
+		os.Exit(1)
+	}
+	for _, p := range patterns {
+		if p == pattern {
+			fmt.Fprintf(os.Stderr, "rt: pattern already ignored: %s\n", pattern)
+			return
+		}
+	}
+
+	// Append to file
+	path := suggestIgnorePath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "rt: %v\n", err)
+		os.Exit(1)
+	}
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "rt: %v\n", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
+	if _, err := fmt.Fprintln(f, pattern); err != nil {
+		fmt.Fprintf(os.Stderr, "rt: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("added to suggest-ignore: %s\n", pattern)
 }
 
 func cmdSkill(args []string) {

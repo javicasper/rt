@@ -34,6 +34,8 @@ func main() {
 		cmdHook(os.Args[2:])
 	case "suggest":
 		cmdSuggest()
+	case "suggest-ignore":
+		cmdSuggestIgnore(os.Args[2:])
 	case "skill":
 		cmdSkill(os.Args[2:])
 	case "--version", "-V":
@@ -61,6 +63,7 @@ Commands:
   add <file|url>     Install a filter
   eject <filter>     Copy built-in filter to user dir for customization
   suggest            Suggest commands that would benefit from a filter
+  suggest-ignore [p]  List or add patterns to hide from suggest
   cache clear|info   Manage filter cache
   hook install       Install Claude Code PreToolUse hook (--global for ~/.claude)
   hook handle        Handle a PreToolUse hook invocation (internal)
