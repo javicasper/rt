@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -237,6 +238,10 @@ func extractBaseCmd(command string) string {
 	if len(fields) == 0 {
 		return command
 	}
+	// Strip directory from absolute paths: /usr/bin/kubectl → kubectl
+	if strings.Contains(fields[0], "/") {
+		fields[0] = filepath.Base(fields[0])
+	}
 	if len(fields) == 1 {
 		return fields[0]
 	}
@@ -312,6 +317,9 @@ func querySuggestions(minTokens int) ([]suggestEntry, error) {
 	return entries, nil
 }
 
+//go:embed suggest-ignore
+var embeddedSuggestIgnore string
+
 func suggestIgnorePath() string {
 	cfg, err := os.UserConfigDir()
 	if err != nil {
@@ -320,22 +328,43 @@ func suggestIgnorePath() string {
 	return filepath.Join(cfg, "rt", "suggest-ignore")
 }
 
-func loadSuggestIgnore() ([]string, error) {
-	data, err := os.ReadFile(suggestIgnorePath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
+func parseSuggestIgnore(data string) []string {
 	var patterns []string
-	for _, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(data, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
 		patterns = append(patterns, line)
 	}
+	return patterns
+}
+
+func loadSuggestIgnore() ([]string, error) {
+	// Start with built-in defaults
+	seen := make(map[string]bool)
+	var patterns []string
+	for _, p := range parseSuggestIgnore(embeddedSuggestIgnore) {
+		if !seen[p] {
+			seen[p] = true
+			patterns = append(patterns, p)
+		}
+	}
+
+	// Merge user patterns
+	data, err := os.ReadFile(suggestIgnorePath())
+	if err != nil && !os.IsNotExist(err) {
+		return patterns, err
+	}
+	if err == nil {
+		for _, p := range parseSuggestIgnore(string(data)) {
+			if !seen[p] {
+				seen[p] = true
+				patterns = append(patterns, p)
+			}
+		}
+	}
+
 	return patterns, nil
 }
 

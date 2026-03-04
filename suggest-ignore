@@ -1,0 +1,55 @@
+# Commands whose output IS the useful content — no filter makes sense.
+cat
+grep
+find
+head
+tail
+sort
+xargs
+less
+more
+wc
+awk
+sed
+tr
+cut
+tee
+uniq
+diff
+# Scripting runtimes — output is arbitrary, can't filter generically.
+python
+python3
+node
+npx
+ruby
+perl
+# Package managers — output varies too much between runs.
+npm
+pnpm
+yarn
+pip
+cargo
+# Shell builtins / setup commands that produce no meaningful output.
+cd
+source
+export
+alias
+pushd
+popd
+# rt itself — meta calls, not useful to filter.
+rt
+# Database / REPL shells — output is the query result.
+mongosh
+psql
+mysql
+sqlite3
+redis-cli
+# Listing tools — already have filters, and partial matches are noise.
+ls
+# Misc tools where output is the content.
+kubectl logs
+curl
+wget
+ssh
+scp
+rsync

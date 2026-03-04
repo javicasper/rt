@@ -279,6 +279,18 @@ func cmdSuggest() {
 		os.Exit(1)
 	}
 
+	// Filter out commands that now have a filter (historical passthrough data)
+	filters, _ := loadFiltersWithCache()
+	if len(filters) > 0 {
+		var filtered []suggestEntry
+		for _, e := range entries {
+			if matchFilter(filters, e.BaseCmd) == nil {
+				filtered = append(filtered, e)
+			}
+		}
+		entries = filtered
+	}
+
 	// Filter out ignored patterns
 	ignorePatterns, err := loadSuggestIgnore()
 	if err != nil {
