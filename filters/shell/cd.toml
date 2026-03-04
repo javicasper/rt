@@ -1,0 +1,11 @@
+# shell/cd.toml — Suppress cd output noise
+# Raw: shell environment output after directory change
+# Filtered: minimal confirmation
+
+command = "cd"
+
+[on_success]
+output = "ok"
+
+[on_failure]
+tail = 3

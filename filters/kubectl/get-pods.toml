@@ -1,0 +1,21 @@
+command = ["kubectl get pods", "kubectl get pod"]
+
+# Header: keep NAME, STATUS, RESTARTS — drop READY, AGE
+[[replace]]
+pattern = '^(NAME)\s+READY\s+(STATUS)\s+(RESTARTS)\s+AGE'
+output = "{1}\t{2}\t{3}"
+
+# Data: extract name, status, restarts — drop ready and age
+[[replace]]
+pattern = '^(\S+)\s+\S+\s+(\S+)\s+(\S+(?:\s+\([^)]+\))?)\s+\S+$'
+output = "{1}\t{2}\t{3}"
+
+# --all-namespaces header: NAMESPACE NAME STATUS RESTARTS
+[[replace]]
+pattern = '^(NAMESPACE)\s+NAME\s+READY\s+(STATUS)\s+(RESTARTS)\s+AGE'
+output = "{1}\tNAME\t{2}\t{3}"
+
+# --all-namespaces data
+[[replace]]
+pattern = '^(\S+)\s+(\S+)\s+\S+\s+(\S+)\s+(\S+(?:\s+\([^)]+\))?)\s+\S+$'
+output = "{1}\t{2}\t{3}\t{4}"

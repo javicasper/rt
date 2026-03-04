@@ -1,0 +1,11 @@
+# shell/activate.toml — Suppress verbose venv activation output
+# Raw: shell environment changes, prompt modifications
+# Filtered: "ok (venv activated)"
+
+command = "source *activate"
+
+[on_success]
+output = "ok (venv activated)"
+
+[on_failure]
+tail = 3

@@ -274,6 +274,10 @@ func querySuggestions(minTokens int) ([]suggestEntry, error) {
 			return nil, err
 		}
 		base := extractBaseCmd(cmd)
+		// Skip entries that don't look like a valid command
+		if base == "" || (base[0] != '/' && (base[0] < 'a' || base[0] > 'z') && (base[0] < 'A' || base[0] > 'Z') && base[0] != '.') {
+			continue
+		}
 		a, ok := groups[base]
 		if !ok {
 			a = &accum{}
