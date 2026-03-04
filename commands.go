@@ -37,7 +37,15 @@ func cmdRun(args []string) {
 	// Determine what command to actually execute
 	var result runResult
 	if f != nil && f.Run != "" {
-		result = runCommand(f.Run)
+		// If the command has chain operators, preserve the setup prefix
+		// and only replace the last segment with the filter's run command.
+		// e.g. "cd /tmp && git status" + run="git status --porcelain -b"
+		//    → "cd /tmp && git status --porcelain -b"
+		runCmd := f.Run
+		if prefix := chainPrefix(cmdStr); prefix != "" {
+			runCmd = prefix + runCmd
+		}
+		result = runCommand(runCmd)
 	} else if shellMode || f == nil {
 		// Passthrough or explicit shell mode: use sh -c to preserve pipes, redirections, etc.
 		result = runCommand(cmdStr)

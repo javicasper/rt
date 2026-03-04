@@ -176,6 +176,24 @@ func toFilterName(path string) string {
 	return filepath.ToSlash(path)
 }
 
+// chainPrefix returns the setup portion of a chained command (everything before
+// the last && / || / ;), including the operator. Returns "" if there's no chain.
+// e.g. "cd /tmp && git status" → "cd /tmp && "
+func chainPrefix(cmdStr string) string {
+	best := -1
+	bestLen := 0
+	for _, sep := range []string{" && ", " || ", "; "} {
+		if idx := strings.LastIndex(cmdStr, sep); idx > best {
+			best = idx
+			bestLen = len(sep)
+		}
+	}
+	if best < 0 {
+		return ""
+	}
+	return cmdStr[:best+bestLen]
+}
+
 // extractMatchCmd extracts the command segment to match against filters.
 // For chains like "cd /tmp && kubectl get pods", we take the last segment.
 // For pipes like "kubectl get pods | head -5", we take the first command.

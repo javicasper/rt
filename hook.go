@@ -157,9 +157,15 @@ func hookHandle() {
 	// Rewrite all commands to go through rt, even without a matching filter.
 	// This lets rt record passthrough stats so "rt suggest" can identify
 	// commands that would benefit from a filter.
+	//
+	// Use shell mode (--) when the command contains chain operators or pipes,
+	// since splitting by args would break those constructs.
+	hasChain := strings.Contains(cmdStr, " && ") || strings.Contains(cmdStr, " || ") ||
+		strings.Contains(cmdStr, "; ") || strings.Contains(cmdStr, " | ")
+
 	var newCmd string
-	if f != nil {
-		// Filter matched: shell-escape each arg so runCommandFromArgs works correctly.
+	if f != nil && !hasChain {
+		// Filter matched, simple command: shell-escape each arg so runCommandFromArgs works correctly.
 		parts := shellSplit(cmdStr)
 		var escaped []string
 		for _, p := range parts {
@@ -167,8 +173,7 @@ func hookHandle() {
 		}
 		newCmd = fmt.Sprintf("%s run %s", rtBin, strings.Join(escaped, " "))
 	} else {
-		// No filter: pass the whole command as a single quoted arg so
-		// cmdRun can forward it to sh -c preserving pipes, redirections, etc.
+		// No filter or chain command: pass via shell mode to preserve pipes, redirections, etc.
 		newCmd = fmt.Sprintf("%s run -- %s", rtBin, shellEscape(cmdStr))
 	}
 
